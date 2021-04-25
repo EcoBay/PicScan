@@ -1,0 +1,22 @@
+<!doctype html>
+<html>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+    {% if autoupdate == 1 %}
+        <meta http-equiv="refresh" content="2">
+    {% endif %}
+    <title>Index</title>
+    <body>
+        <div class="topnav">
+            <a class="active" href="{{ url_for('index') }}">Home</a>
+            <a href="{{ url_for('log') }}">Log</a>
+            <a href="{{ url_for('leavePass') }}">Leave Pass</a>
+            <a href="{{ url_for('students') }}">Students</a>
+        </div>
+        {% if no_img == 1 %}
+            <h1>Hello World {{ counter }}</h1>
+        {% else %}
+            <img id="idscan" src="{{ url_for('image') }}" />
+        {% endif %}
+        <p>test</p>
+    </body>
+</html>
