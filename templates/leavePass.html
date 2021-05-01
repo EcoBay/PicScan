@@ -7,8 +7,20 @@
             <a href="{{ url_for('index') }}">Home</a>
             <a href="{{ url_for('log') }}">Log</a>
             <a class="active" href="{{ url_for('leavePass') }}">Leave Pass</a>
-            <a href="{{ url_for('students') }}">Students</a>
         </div>
-        <h1>Hello World</h1>
+        <div class="content">
+            <form action="{{ url_for('addLeavePass') }}" method = "POST">
+                <h3>Leave Pass</h3>
+                <input type="radio" name="type" value="Home" checked/>
+                <label for="Home">Home</label>
+                <input type="radio" name="type" value="Gate" />
+                <label for="Home">Gate</label><br />
+                <label for="name">Name: </label>
+                <input type="text" name="name" /><br />
+                <label for="destination">Destination</label>
+                <input type="text" name="destination"/><br />
+                <input type="submit" name="Submit"/>
+            </form>
+        </div>
     </body>
 </html>

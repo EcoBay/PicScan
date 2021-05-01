@@ -14,7 +14,7 @@ import io
 
 import os
 
-img, status, dat = 0, 0, None
+img, status, dat, nam = 0, 0, None, ""
 
 @app.route('/')
 def root():
@@ -22,13 +22,14 @@ def root():
 
 @app.route('/index')
 def index():
-    global status, dat
+    global status, dat, nam
 
     if status == 2:
+        dat = getDat(nam)
         with sqlite3.connect('picscan.db') as conn:
             cur = conn.cursor()
             sql = '''
-                SELECT Logout.ID, type, timeout, timein, CASE remarks
+                SELECT Logout.ID, type, destination, timeout, timein, CASE remarks
                     WHEN 0 THEN "No Issues"
                     WHEN 110 THEN "WARNING: Exceeded Time"
                     WHEN 210 THEN "VIOLATION: Exceeded Time"
@@ -60,13 +61,71 @@ def log():
 def leavePass():
     return render_template('leavePass.html')
 
-@app.route('/students')
-def students():
-    return render_template('students.html')
+@app.route('/addLeavePass', methods=['POST'])
+def addLeavePass():
+    name = request.form['name']
+    tp = request.form['type']
+    add = request.form['destination']
+    with sqlite3.connect("picscan.db") as conn:
+        conn.enable_load_extension(True)
+        conn.load_extension("./spellfix.so")
+
+        cur = conn.cursor()
+        cur.execute('''
+            SELECT word, Students.id FROM Names
+            INNER JOIN Students
+            ON Students.id=Names.rowid
+            WHERE word MATCH "*{}*" AND top=1;
+        '''.format(name))
+        if a:=cur.fetchone():
+            name = a[0]
+            msg = "Added Leavepass for {}".format(name)
+            conn.execute('''
+                INSERT INTO LeavePass(studentID, type, destination)
+                VALUES (?, ?, ?)
+            ''', (a[1], tp, add))
+            conn.commit()
+
+        else:
+            msg = 'Cannot match "{}"'.format(name)
+
+        return redirect(url_for('index')+"?u="+msg)
+
+
+def getDat(nam):
+    name = nam
+    with sqlite3.connect('picscan.db') as conn:
+        conn.enable_load_extension(True)
+        conn.load_extension("./spellfix.so")
+        cur = conn.cursor()
+        sql = '''
+            SELECT word, gradeAndSection, idNumber, address, CASE isIntern
+                WHEN 0 THEN "Extern"
+                WHEN 1 THEN "Intern"
+            END, CASE inCampus
+                WHEN 0 THEN "Out of Campus"
+                WHEN 1 THEN "In Campus"
+            END
+            FROM Students
+            INNER JOIN Names ON Students.id=Names.rowid
+            WHERE word MATCH ? AND top=1 AND scope=1
+        '''
+        cur.execute(sql, (name,))
+        data = cur.fetchall()
+        if len(data):
+            data = data[0]
+        else:
+            return False
+    
+    keys=['name', 'gradeAndSection', 'idNumber', 'address', 'residence', 'status']
+    dat = dict()
+    for a, b in zip(keys, data):
+        dat[a] = b
+    return dat
 
 @app.route('/post', methods=['POST'])
 def post():
-    global img, status, dat
+    global img, status, dat, nam
     image = request.json['image']
 
     arr = np.frombuffer(base64.b64decode(image), np.uint8)
@@ -75,7 +134,44 @@ def post():
     val, img1 = ocr.checkValidity(img)
 
     if val:
-        dat = ocr.getUser(img1)
+        nam = ocr.getUser(img1)
+        dat = getDat(nam)
+        if dat['status'] == "In Campus":
+            with sqlite3.connect('picscan.db') as conn:
+                cur = conn.cursor()
+                sql = '''
+                    SELECT LeavePass.id FROM LeavePass
+                    INNER JOIN Students
+                    ON Students.id=LeavePass.studentID
+                    LEFT JOIN Logout
+                    ON Logout.leavePassID=LeavePass.id
+                    WHERE Logout.id IS NULL AND Students.idNumber=?
+                '''
+                cur.execute(sql, (dat['idNumber'],))
+                if row := cur.fetchone():
+                    conn.execute("INSERT INTO Logout(leavePassID) VALUES(?)", (row[0],))
+                    conn.execute("UPDATE Students SET inCampus=0 WHERE idNumber=?", (dat['idNumber'],))
+                    conn.commit()
+        else:
+            with sqlite3.connect('picscan.db') as conn:
+                cur = conn.cursor()
+                sql = '''
+                    SELECT Logout.id FROM Logout
+                    INNER JOIN LeavePass
+                    ON Logout.leavePassID=LeavePass.id
+                    INNER JOIN Students
+                    ON Students.id=LeavePass.studentID
+                    LEFT JOIN Login
+                    ON Login.logID=Logout.id
+                    WHERE Login.logID IS NULL AND Students.idNumber=?
+                '''
+                cur.execute(sql, (dat['idNumber'],))
+                if row := cur.fetchone():
+                    conn.execute("INSERT INTO Login(logID) VALUES(?)", (row[0],))
+                    conn.execute("UPDATE Students SET inCampus=1 WHERE idNumber=?", (dat['idNumber'],))
+                    conn.commit()
+
+
         if not dat:
             dat = {'error': 'Student not in the Database'}
             val -= 1

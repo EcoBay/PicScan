@@ -35,35 +35,8 @@ def getUser(img):
     name = max(pytesseract.image_to_string(img).splitlines(), key=len)
     a = int(len(name)*0.1)
     name = name[a:-a]
+    return name
 
-    with sqlite3.connect('picscan.db') as conn:
-        conn.enable_load_extension(True)
-        conn.load_extension("./spellfix.so")
-        cur = conn.cursor()
-        sql = '''
-            SELECT word, gradeAndSection, idNumber, address, CASE isIntern
-                WHEN 0 THEN "Extern"
-                WHEN 1 THEN "Intern"
-            END, CASE inCampus
-                WHEN 0 THEN "Out of Campus"
-                WHEN 1 THEN "In Campus"
-            END
-            FROM Students
-            INNER JOIN Names ON Students.id=Names.rowid
-            WHERE word MATCH ? AND top=1 AND scope=1
-        '''
-        cur.execute(sql, (name,))
-        data = cur.fetchall()
-        if len(data):
-            data = data[0]
-        else:
-            return False
-    
-    keys=['name', 'gradeAndSection', 'idNumber', 'address', 'residence', 'status']
-    dat = dict()
-    for a, b in zip(keys, data):
-        dat[a] = b
-    return dat
 
 def levenshteinDistance(s1, s2):
     if len(s1) > len(s2):
