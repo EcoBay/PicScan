@@ -7,16 +7,61 @@
     <title>Index</title>
     <body>
         <div class="topnav">
-            <a class="active" href="{{ url_for('index') }}">Home</a>
+            <a class="active" href="{{ url_for('index') }}?autoupdate={{ 1*(autoupdate == 0) }}">Home</a>
             <a href="{{ url_for('log') }}">Log</a>
             <a href="{{ url_for('leavePass') }}">Leave Pass</a>
             <a href="{{ url_for('students') }}">Students</a>
         </div>
-        {% if no_img == 1 %}
-            <h1>Hello World {{ counter }}</h1>
-        {% else %}
-            <img id="idscan" src="{{ url_for('image') }}" />
-        {% endif %}
-        <p>test</p>
+        <div class="content">
+            <div style="height:310px; margin-bottom:20px;">
+                <img id="idscan" src="{{ url_for('image') }}?u={{stamp}}" style="border-color:
+                    {% if status == 1 %}
+                        indianred
+                    {% elif status == 2 %}
+                        #5CC05C
+                    {% endif %}
+                ;"/>
+                {% if status == 0 %}
+                    <h2>No image uploaded yet</h2>
+                {% elif status == 1 %}
+                    <h2>{{ data['error'] }}</h2>
+                {% elif status == 2 %}
+                    <img id="idpic" src="/idpic/{{ data['idNumber'] }}?u={{stamp}}" alt="1x1 ID Picture" />
+                    <dl>
+                        <dt>Name</dt>
+                        <dd>{{ data['name'] }}</dd>
+                        <dt>Grade and Section</dt>
+                        <dd>{{ data['gradeAndSection'] }}</dd>
+                        <br />
+                        <dt>ID Number</dt>
+                        <dd>{{ data['idNumber'] }}</dd>
+                        <dt>Address</dt>
+                        <dd>{{ data['address'] }}</dd>
+                        <dt>Residence</dt>
+                        <dd>{{ data['residence'] }}</dd>
+                        <dt>Status</dt>
+                        <dd>{{ data['status'] }}</dd>
+                    </dl>
+                {% endif %}
+            </div>
+            {% if status == 2 %}
+                <table>
+                    <tr>
+                        <th>Log ID</th>
+                        <th>Pass Type</th>
+                        <th>Logout Time</th>
+                        <th>Login Time</th>
+                        <th>Remarks</th>
+                    </tr>
+                    <tr>
+                        <td>4941</td>
+                        <td>Gate</td>
+                        <td>2021-04-27 13:44:02</td>
+                        <td>2021-04-27 13:44:02</td>
+                        <td>No Issues</td>
+                    </tr>
+                </table>
+            {% endif %}
+        </div>
     </body>
 </html>

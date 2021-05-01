@@ -1,6 +1,6 @@
 #!/bin/python
 
-from flask import Flask, request, redirect, url_for, render_template, send_file
+from flask import Flask, request, redirect, url_for, render_template, send_file, current_app
 app = Flask(__name__)
 
 from PIL import Image
@@ -11,21 +11,30 @@ import io
 
 import os
 
-img, no_img = 0, 1
+img, status = 0, 0
 
 @app.route('/')
 def root():
     return redirect(url_for('index'))
 
-i = 0
 @app.route('/index')
 def index():
-    global i, no_img
-    i += 1
+    global status
+    dat = dict()
+    if status == 1:
+        dat['error'] = "ID not recognized"
+    elif status == 2:
+        dat['name'] = "BAYOD, Jerico Wayne Y."
+        dat['gradeAndSection'] = "12 - Eridani"
+        dat['idNumber'] = "15-01297"
+        dat['address'] = "Centro East, Allacapan, Cagayan"
+        dat['residence'] = "Intern"
+        dat['status'] = "In Campus"
     return render_template('index.html',
-        counter = i,
         autoupdate = request.args.get('autoupdate', default = 0, type = int),
-        no_img = no_img
+        status = status,
+        stamp = np.random.randint(1,0xFFFF),
+        data=dat
     )
 
 @app.route('/log')
@@ -42,13 +51,13 @@ def students():
 
 @app.route('/post', methods=['POST'])
 def post():
-    global img, no_img
+    global img, status
     image = request.json['image']
 
     arr = np.frombuffer(base64.b64decode(image), np.uint8)
     img = cv2.imdecode(arr, cv2.IMREAD_COLOR)
 
-    no_img = 0
+    status += 1
 
 
     return '', 204
@@ -56,12 +65,22 @@ def post():
 @app.route('/image.jpg')
 def image():
     global img
-    image = Image.fromarray(img.astype('uint8'))
-    file = io.BytesIO()
-    image.save(file, 'JPEG')
-    
-    file.seek(0)
-    return send_file(file, mimetype='image/jpeg')
+    if status > 0:
+        image = Image.fromarray(img.astype('uint8'))
+        file = io.BytesIO()
+        image.save(file, 'JPEG')
+        file.seek(0)
+        return send_file(file, mimetype='image/jpeg')
+    else:
+        return send_file('static/images/noimg.jpg', mimetype='image/jpeg')
+
+@app.route('/idpic/<idnumber>')
+def idpic(idnumber):
+    if os.path.exists("static/images/{}.jpg".format(idnumber)):
+        return send_file('static/images/{}.jpg'.format(idnumber), mimetype='image/jpeg')
+    else:
+        return send_file('static/images/noid.jpg', mimetype='image/jpg')
+
 
 @app.context_processor
 def override_url_for():
