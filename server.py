@@ -4,6 +4,7 @@ from flask import Flask, request, redirect, url_for, render_template, send_file,
 app = Flask(__name__)
 
 import sqlite3
+import ocr
 
 from PIL import Image
 import base64
@@ -13,7 +14,7 @@ import io
 
 import os
 
-img, status = 0, 0
+img, status, dat = 0, 0, None
 
 @app.route('/')
 def root():
@@ -21,39 +22,28 @@ def root():
 
 @app.route('/index')
 def index():
-    global status
-    dat = dict()
-    if status == 1:
-        dat['error'] = "ID not recognized"
-    elif status == 2:
-        dat['name'] = "BAYOD, Jerico Wayne Y."
-        dat['gradeAndSection'] = "12 - Eridani"
-        dat['idNumber'] = "15-01296"
-        dat['address'] = "Centro East, Allacapan, Cagayan"
-        dat['residence'] = "Intern"
-        dat['status'] = "In Campus"
-        
-        conn = sqlite3.connect('picscan.db')
-        conn.enable_load_extension(True)
-        conn.load_extension("./spellfix.so")
-        cur = conn.cursor()
-        sql = '''
-            SELECT Logout.ID, type, timeout, timein, CASE remarks
-                WHEN 0 THEN "No Issues"
-                WHEN 110 THEN "WARNING: Exceeded Time"
-                WHEN 210 THEN "VIOLATION: Exceeded Time"
-                WHEN 211 THEN "VIOLATION: Expired Pass"
-                WHEN 221 THEN "VIOLATION: Broke Curfew"
-                WHEN 222 THEN "VIOLATION: Inappropriate Behaviour"
-            END
-            FROM Students
-            INNER JOIN LeavePass ON LeavePass.studentID=Students.id
-            INNER JOIN Logout ON Logout.leavePassID=LeavePass.id
-            LEFT JOIN Login ON Login.logID=Logout.id
-            WHERE idNumber=? ORDER BY Logout.ID DESC LIMIT 10
-        '''
-        cur.execute(sql, (dat['idNumber'],))
-        dat['logs'] = cur.fetchall()
+    global status, dat
+
+    if status == 2:
+        with sqlite3.connect('picscan.db') as conn:
+            cur = conn.cursor()
+            sql = '''
+                SELECT Logout.ID, type, timeout, timein, CASE remarks
+                    WHEN 0 THEN "No Issues"
+                    WHEN 110 THEN "WARNING: Exceeded Time"
+                    WHEN 210 THEN "VIOLATION: Exceeded Time"
+                    WHEN 211 THEN "VIOLATION: Expired Pass"
+                    WHEN 221 THEN "VIOLATION: Broke Curfew"
+                    WHEN 222 THEN "VIOLATION: Inappropriate Behaviour"
+                END
+                FROM Students
+                INNER JOIN LeavePass ON LeavePass.studentID=Students.id
+                INNER JOIN Logout ON Logout.leavePassID=LeavePass.id
+                LEFT JOIN Login ON Login.logID=Logout.id
+                WHERE idNumber=? ORDER BY Logout.ID DESC LIMIT 10
+            '''
+            cur.execute(sql, (dat['idNumber'],))
+            dat['logs'] = cur.fetchall()
     
     return render_template('index.html',
         autoupdate = request.args.get('autoupdate', default = 0, type = int),
@@ -76,14 +66,23 @@ def students():
 
 @app.route('/post', methods=['POST'])
 def post():
-    global img, status
+    global img, status, dat
     image = request.json['image']
 
     arr = np.frombuffer(base64.b64decode(image), np.uint8)
     img = cv2.imdecode(arr, cv2.IMREAD_COLOR)
 
-    status += 1
+    val, img1 = ocr.checkValidity(img)
 
+    if val:
+        dat = ocr.getUser(img1)
+        if not dat:
+            dat = {'error': 'Student not in the Database'}
+            val -= 1
+    else:
+        dat = {'error': 'Cannot recognize ID'}
+
+    status = val + 1
 
     return '', 204
 
