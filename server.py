@@ -3,6 +3,8 @@
 from flask import Flask, request, redirect, url_for, render_template, send_file, current_app
 app = Flask(__name__)
 
+import sqlite3
+
 from PIL import Image
 import base64
 import numpy as np
@@ -26,10 +28,33 @@ def index():
     elif status == 2:
         dat['name'] = "BAYOD, Jerico Wayne Y."
         dat['gradeAndSection'] = "12 - Eridani"
-        dat['idNumber'] = "15-01297"
+        dat['idNumber'] = "15-01296"
         dat['address'] = "Centro East, Allacapan, Cagayan"
         dat['residence'] = "Intern"
         dat['status'] = "In Campus"
+        
+        conn = sqlite3.connect('picscan.db')
+        conn.enable_load_extension(True)
+        conn.load_extension("./spellfix.so")
+        cur = conn.cursor()
+        sql = '''
+            SELECT Logout.ID, type, timeout, timein, CASE remarks
+                WHEN 0 THEN "No Issues"
+                WHEN 110 THEN "WARNING: Exceeded Time"
+                WHEN 210 THEN "VIOLATION: Exceeded Time"
+                WHEN 211 THEN "VIOLATION: Expired Pass"
+                WHEN 221 THEN "VIOLATION: Broke Curfew"
+                WHEN 222 THEN "VIOLATION: Inappropriate Behaviour"
+            END
+            FROM Students
+            INNER JOIN LeavePass ON LeavePass.studentID=Students.id
+            INNER JOIN Logout ON Logout.leavePassID=LeavePass.id
+            LEFT JOIN Login ON Login.logID=Logout.id
+            WHERE idNumber=? ORDER BY Logout.ID DESC LIMIT 10
+        '''
+        cur.execute(sql, (dat['idNumber'],))
+        dat['logs'] = cur.fetchall()
+    
     return render_template('index.html',
         autoupdate = request.args.get('autoupdate', default = 0, type = int),
         status = status,

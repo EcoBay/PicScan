@@ -53,13 +53,15 @@
                         <th>Login Time</th>
                         <th>Remarks</th>
                     </tr>
-                    <tr>
-                        <td>4941</td>
-                        <td>Gate</td>
-                        <td>2021-04-27 13:44:02</td>
-                        <td>2021-04-27 13:44:02</td>
-                        <td>No Issues</td>
-                    </tr>
+                    {% for row in data['logs'] %}
+                        <tr>
+                            <td>{{ row[0] }}</td>
+                            <td>{{ row[1] }}</td>
+                            <td>{{ row[2] }}</td>
+                            <td>{{ row[3] }}</td>
+                            <td>{{ row[4] }}</td>
+                        </tr>
+                    {% endfor %}
                 </table>
             {% endif %}
         </div>
