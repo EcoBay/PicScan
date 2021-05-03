@@ -29,14 +29,14 @@ def index():
         with sqlite3.connect('picscan.db') as conn:
             cur = conn.cursor()
             sql = '''
-                SELECT Logout.ID, type, destination, timeout, timein, CASE remarks
+                SELECT Logout.ID, type, destination, timeout, IFNULL(timein, ""), IFNULL(CASE remarks
                     WHEN 0 THEN "No Issues"
                     WHEN 110 THEN "WARNING: Exceeded Time"
                     WHEN 210 THEN "VIOLATION: Exceeded Time"
                     WHEN 211 THEN "VIOLATION: Expired Pass"
                     WHEN 221 THEN "VIOLATION: Broke Curfew"
                     WHEN 222 THEN "VIOLATION: Inappropriate Behaviour"
-                END
+                END, "")
                 FROM Students
                 INNER JOIN LeavePass ON LeavePass.studentID=Students.id
                 INNER JOIN Logout ON Logout.leavePassID=LeavePass.id
@@ -55,7 +55,48 @@ def index():
 
 @app.route('/log')
 def log():
-    return render_template('log.html')
+    page = request.args.get('page', default = 1, type = int)
+    sort = request.args.get('sort', default = 0, type = int)
+    with sqlite3.connect("picscan.db") as conn:
+        conn.enable_load_extension(True)
+        conn.load_extension("./spellfix.so")
+
+        cur = conn.cursor()
+        sql = '''
+            SELECT Logout.id, word, type, destination, timeout, IFNULL(timein, ""), IFNULL(CASE remarks
+                    WHEN 0 THEN "No Issues"
+                    WHEN 110 THEN "WARNING: Exceeded Time"
+                    WHEN 210 THEN "VIOLATION: Exceeded Time"
+                    WHEN 211 THEN "VIOLATION: Expired Pass"
+                    WHEN 221 THEN "VIOLATION: Broke Curfew"
+                    WHEN 222 THEN "VIOLATION: Inappropriate Behaviour"
+                END, "")
+            FROM Students
+            INNER JOIN Names ON Students.id=Names.rowid
+            INNER JOIN LeavePass ON LeavePass.studentID=Students.id
+            INNER JOIN Logout ON Logout.leavePassID=LeavePass.id
+            LEFT JOIN Login ON Login.logID=Logout.ID
+            {}
+            LIMIT ?, 20
+        '''
+        order = "ORDER BY Logout.id DESC"
+        if sort == 1:
+            order = '''
+                ORDER BY CASE WHEN timein IS NULL THEN 1 ELSE 0 END DESC,
+                timein DESC,
+                Logout.id DESC
+            '''
+        elif sort == 2:
+            order = '''
+                ORDER BY remarks DESC, Logout.id DESC
+            '''
+        cur.execute(sql.format(order), (page * 20 - 20, ))
+        logs = cur.fetchall()
+    return render_template('log.html',
+            logs=logs,
+            page=page,
+            sort=sort
+    )
 
 @app.route('/leavePass')
 def leavePass():

@@ -8,6 +8,45 @@
             <a class="active" href="{{ url_for('log') }}">Log</a>
             <a href="{{ url_for('leavePass') }}">Leave Pass</a>
         </div>
-        <h1>Hello World</h1>
+        <div class="content">
+            <table>
+                <tr>
+                    <th>Log ID</th>
+                    <th>Name</th>
+                    <th>Pass Type</th>
+                    <th>Destination</th>
+                    <th>Logout Time</th>
+                    <th>
+                        <a class="sort" href="{{ url_for('log') }}?sort=1">
+                            Login Time
+                        </a>
+                    </th>
+                    <th>
+                        <a class="sort" href="{{ url_for('log') }}?sort=2">
+                            Remarks
+                        </a>
+                    </th>
+                </tr>
+                {% for row in logs %}
+                    <tr>
+                        <td>{{ row[0] }}</td>
+                        <td>{{ row[1] }}</td>
+                        <td>{{ row[2] }}</td>
+                        <td>{{ row[3] }}</td>
+                        <td>{{ row[4] }}</td>
+                        <td>{{ row[5] }}</td>
+                        <td>{{ row[6] }}</td>
+                    </tr>
+                {% endfor %}
+            </table>
+            {% if page > 1 %}
+            <a class="lognav" href="{{ url_for('log') }}?page={{ page - 1 }}&sort={{ sort }}" style="float:left;">
+                    ❮ Newer
+                </a>
+            {% endif %}
+    <a class="lognav" href="{{ url_for('log') }}?page={{ page + 1 }}&sort={{ sort }}" style="float:right;">
+                Older ❯
+            </a>
+        </div>
     </body>
 </html>
